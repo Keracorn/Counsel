@@ -9,8 +9,6 @@ import re
 # TODO: SLEEP 전 메세지를 보내야 하는 문제..threading.Timer 사용하면 좋을 듯
 # https://www.geeksforgeeks.org/timer-objects-python/
 # timer 설정 후 메세지가 추가로 오는 경우 timer.cancel로 취소
-# TODO: 각종 token, key 분리
-# TODO: 이름 받는로직
 # TODO: 일정 시간이 지난 후 문장 합쳐서 출력
 # TODO: 봇과 대화한 기록이 있는 경우 /start 명령어를 넣어야 동작
 # TODO: 실제 계정 만들기
