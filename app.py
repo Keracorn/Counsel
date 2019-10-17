@@ -6,12 +6,7 @@ import urllib.request
 import threading
 import re
 
-# TODO: SLEEP 전 메세지를 보내야 하는 문제..threading.Timer 사용하면 좋을 듯
-# https://www.geeksforgeeks.org/timer-objects-python/
-# timer 설정 후 메세지가 추가로 오는 경우 timer.cancel로 취소
-# TODO: 일정 시간이 지난 후 문장 합쳐서 출력
 # TODO: 봇과 대화한 기록이 있는 경우 /start 명령어를 넣어야 동작
-# TODO: 실제 계정 만들기
 # TODO: COUNSEL 로직 추가
 # TODO: 모듈화를 위해 다른 파일로 분리: 가장 나중에
 
@@ -22,17 +17,20 @@ with open('key.json', 'r') as f:
     try:
         TELEGRAM_TOKEN = secrets["TELEGRAM_TOKEN"]
     except KeyError:
+        print('KeyError')
         pass
-
-# @hamdoe_bot
 
 app = Flask(__name__)
 message_dict = {}
+timer = 0
 
 
 @app.route('/webhook', methods=['POST'])
 def get_message():
     """webHook으로 push된 요청을 반환한다."""
+    global timer
+    timer = 0
+    print('get_message '+str(timer))
     message = request.get_json()
     # print(request_data['message']['text'])
     save_message(message)
@@ -61,41 +59,31 @@ def save_message(message):
         else:
             message_dict[from_id] = {next_update_id: text}
         print(list(message_dict.values())[0])
-    wait_message()
+        chat()
 
 
-def wait_message():
-    check_messages_and_response()
-    time.sleep(3)
-        # 빠르게 확인하기 위해 일단 3초로 하겠습니다
-
-
-def check_messages_and_response():
-    """
-    챗봇으로 메세지를 확인하고, 적절히 응답한다.
-    """
+def check_messages():
     messages = list(message_dict.values())[0]
     last_update_id = max(list(messages.keys()))
     received_messages = list(messages.values())
     chat_id = list(message_dict.keys())[0]
+    return received_messages, chat_id
+
+
+def chat():
+    """
+    챗봇으로 메세지를 확인하고, 적절히 응답한다.
+    """
+    received_messages, chat_id = check_messages()
     if received_messages[0] == '/start':
         send_message(chat_id, '안녕 반가워! 나는 상담 챗봇 케라콘이라고 해')
-        # time.sleep(1)
+        time.sleep(1)
         message_dict.clear()
-        print(chat_id)
         # 이름을 물어봅니다.
-        _, name = ask_name(chat_id)
-
+        name = ask_name(chat_id)
         # 고민을 듣고 고민을 말한 연속적인 말들을 리스트 형태로 불러옵니다.
-        _, question = counsel(name, chat_id)
-
-    # if received_messages:
-    #     send_text = ''
-    #     for message in received_messages:
-    #         send_text += message
-    #         send_text += ' '
-    #     send_text += ' 라고 말씀하셨군요!'
-    #     send_message(chat_id, send_text)
+        question = counsel(name, chat_id)
+        # 모델로 넘기기
 
 
 def build_url(method, query=''):
@@ -148,13 +136,18 @@ def send_message(chat_id, text):
 
 
 def ask_name(chat_id):
-    name = ''
     send_message(chat_id, '너는 이름이 뭐야?')
-    time.sleep(5)
-    messages = list(message_dict.values())[0]
-    last_update_id = max(list(messages.keys()))
-    received_messages = list(messages.values())
-    chat_id = list(message_dict.keys())[0]
+    global timer
+    name = ''
+    while not message_dict:
+        timer += 1
+        time.sleep(1)
+        print('ask_name ' + str(timer))
+    # while timer < 6:
+    #     timer += 1
+    #     time.sleep(1)
+    #     print('ask_name '+str(timer))
+    received_messages, chat_id = check_messages()
     # last_update_id, received_messages = get_updates(next_update_id)
     for message in received_messages:
         # name = re.search('\\b[가-힣]+\\b이?야?', message).group()
@@ -163,30 +156,30 @@ def ask_name(chat_id):
     time.sleep(1)
     send_message(chat_id, '이름이 ' + name + '(이)구나!')
     message_dict.clear()
-    return last_update_id, name
+    return name
 
 
 def counsel(name, chat_id):
     send_message(chat_id, name + '(이)는 무슨 고민이 있어서 왔어?')
+    global timer
     question = ''
-    time.sleep(10)
-    messages = list(message_dict.values())[0]
-    last_update_id = max(list(messages.keys()))
-    received_messages = list(messages.values())
-    chat_id = list(message_dict.keys())[0]
+    while timer < 6:
+        timer += 1
+        time.sleep(1)
+        print('counsel '+str(timer))
+    received_messages, chat_id = check_messages()
     # last_update_id, received_messages = get_updates(next_update_id)
     for message in received_messages:
         question += message
-        question += ''
+        question += ' '
         # 여기 question을 받아서 학습한 모델에 넣으면 될 것 같습니다.
-    # print(question)
+    print(question)
     time.sleep(1)
     send_message(chat_id, '그랬구나')
     time.sleep(1)
     send_message(chat_id, '많이 힘들었겠다')
     message_dict.clear()
-
-    return last_update_id, question
+    return question
 
 
 if __name__ == '__main__':
